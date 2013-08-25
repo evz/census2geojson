@@ -1,4 +1,4 @@
-# shp2geojson
+# census2geojson
 
 Convert TIGER/Line Shapefiles from the U.S. Census Bureau into GeoJSON
 
@@ -7,7 +7,7 @@ Convert TIGER/Line Shapefiles from the U.S. Census Bureau into GeoJSON
 To download and dump out the shapefile for Cook County, IL and save it to a directory called ``out``: 
 
 ``` bash
-$ python shp2geojson.py --counties 17031 --outdir out
+$ python census2geojson.py --counties 17031 --outdir out
 ```
 
 ### Handy resources:
