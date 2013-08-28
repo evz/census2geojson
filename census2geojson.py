@@ -56,6 +56,15 @@ def dump_shapes(fips, shape_type, outdir):
                     geo['features'].append(dump)
         f = open('%s/%s_%s.geojson' % (outdir, fips, shape_type), 'wb')
         f.write(json.dumps(geo))
+        return geo
+
+def merge(shapes):
+    out_geo = {'type': 'FeatureCollection', 'features': []}
+    for shape in shapes:
+        features = shape['features']
+        for feature in features:
+            out_geo['features'].append(feature)
+    return out_geo
 
 if __name__ == "__main__":
     import argparse
@@ -73,6 +82,9 @@ if __name__ == "__main__":
     parser.add_argument('--shape_type', choices=['blocks', 'tracts'], required=True,
         help="""
             Type of shapes you want to dump.""")
+    parser.add_argument('--merge', action='store_true',
+        help="""
+            Merge all the shapefiles into one GeoJSON object.""")
     args = parser.parse_args()
     counties = args.counties.split(',')
     try:
@@ -80,5 +92,10 @@ if __name__ == "__main__":
     except OSError:
         pass
     shape_type = SHAPE_LOOKUP[args.shape_type]
+    all_shapes = []
     for fips in counties:
-        dump_shapes(fips, shape_type, args.outdir)
+        all_shapes.append(dump_shapes(fips, shape_type, args.outdir))
+    if args.merge:
+        merged = merge(all_shapes)
+        f = open('%s/merged.geojson' % args.outdir, 'wb')
+        f.write(json.dumps(merged))
