@@ -40,10 +40,19 @@ def dump_shapes(fips, shape_type, outdir):
         record_groups = grouper(records, 1000)
         geo = {'type': 'FeatureCollection', 'features': []}
         for records in record_groups:
+            i = 0
             for record in records:
                 if record:
                     geoid = record.record[4]
-                    dump = {'type': 'Feature', 'geometry': record.shape.__geo_interface__}
+                    dump = {
+                        'type': 'Feature', 
+                        'geometry': record.shape.__geo_interface__,
+                        'id': i,
+                        'properties': {
+                            'tract_fips': geoid
+                        }
+                    }
+                    i += 1
                     geo['features'].append(dump)
         f = open('%s/%s_%s.geojson' % (outdir, fips, shape_type), 'wb')
         f.write(json.dumps(geo))
