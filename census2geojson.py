@@ -49,7 +49,6 @@ def dump_shapes(fips, shape_type, outdir):
                         tract_fips = ''.join([fips, fips_parts[0].zfill(4), fips_parts[1].zfill(2)])
                     except IndexError:
                         tract_fips = ''.join([fips, fips_parts[0].zfill(4), '00'])
-                    print tract_fips
                     dump = {
                         'type': 'Feature', 
                         'geometry': record.shape.__geo_interface__,
