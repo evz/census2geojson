@@ -44,12 +44,18 @@ def dump_shapes(fips, shape_type, outdir):
             for record in records:
                 if record:
                     geoid = record.record[4]
+                    fips_parts = geoid.split('.')
+                    try:
+                        tract_fips = ''.join([fips, fips_parts[0].zfill(4), fips_parts[1].zfill(2)])
+                    except IndexError:
+                        tract_fips = ''.join([fips, fips_parts[0].zfill(4), '00'])
+                    print tract_fips
                     dump = {
                         'type': 'Feature', 
                         'geometry': record.shape.__geo_interface__,
                         'id': i,
                         'properties': {
-                            'tract_fips': geoid
+                            'tract_fips': tract_fips
                         }
                     }
                     i += 1
