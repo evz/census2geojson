@@ -7,6 +7,7 @@ from cStringIO import StringIO
 from itertools import izip_longest
 
 ENDPOINT = 'http://www2.census.gov/geo/tiger/TIGER2010'
+OD_ENDPOINT = 'http://ec2-54-212-141-93.us-west-2.compute.amazonaws.com'
 
 SHAPE_LOOKUP = {
     'blocks': 'TABBLOCK',
@@ -17,7 +18,7 @@ def grouper(iterable, n, fillvalue=None):
     args = [iter(iterable)] * n
     return izip_longest(*args, fillvalue=fillvalue)
 
-def dump_shapes(fips, shape_type, outdir):
+def dump_shapes(fips, shape_type, outdir, get_od=False):
     url = '%s/%s/2010/tl_2010_%s_%s10.zip' % (ENDPOINT, shape_type.upper(), fips, shape_type.lower())
     req = requests.get(url)
     if req.status_code != 200:
@@ -57,6 +58,8 @@ def dump_shapes(fips, shape_type, outdir):
                             'tract_fips': tract_fips
                         }
                     }
+                    if get_od:
+                        dump = add_od(tract_fips, dump)
                     i += 1
                     geo['features'].append(dump)
         f = open('%s/%s_%s.geojson' % (outdir, fips, shape_type), 'wb')
@@ -70,6 +73,19 @@ def merge(shapes):
         for feature in features:
             out_geo['features'].append(feature)
     return out_geo
+
+def add_od(fips, geo):
+    u = '%s/tract-average/%s/' % (OD_ENDPOINT, fips)
+    r = requests.get(u)
+    if r.status_code is 200:
+        if r.json():
+            geo['properties']['2011'] = {'total_jobs': r.json()['2011']['total_jobs']}
+        else:
+            geo['properties']['2011'] = {'total_jobs': None}
+        return geo
+    else:
+        print 'Got a %s from LODES endpoint when trying to get OD data for %s' % (r.status_code, fips)
+        return geo
 
 if __name__ == "__main__":
     import argparse
@@ -90,6 +106,10 @@ if __name__ == "__main__":
     parser.add_argument('--merge', action='store_true',
         help="""
             Merge all the shapefiles into one GeoJSON object.""")
+    parser.add_argument('--get_od', action='store_true',
+        help="""
+            Attempt to fetch data about workers traveling to and from given tracts.
+            Only works for tract level data. """)
     args = parser.parse_args()
     counties = args.counties.split(',')
     try:
@@ -99,7 +119,7 @@ if __name__ == "__main__":
     shape_type = SHAPE_LOOKUP[args.shape_type]
     all_shapes = []
     for fips in counties:
-        all_shapes.append(dump_shapes(fips, shape_type, args.outdir))
+        all_shapes.append(dump_shapes(fips, shape_type, args.outdir, get_od=args.get_od))
     if args.merge:
         merged = merge(all_shapes)
         f = open('%s/merged.geojson' % args.outdir, 'wb')
