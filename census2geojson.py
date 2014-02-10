@@ -18,7 +18,7 @@ def grouper(iterable, n, fillvalue=None):
     args = [iter(iterable)] * n
     return izip_longest(*args, fillvalue=fillvalue)
 
-def dump_shapes(fips, shape_type, outdir, get_jobs=False):
+def fetch_shapes(fips, shape_type, outdir, get_jobs=False):
     url = '%s/%s/2010/tl_2010_%s_%s10.zip' % (ENDPOINT, shape_type.upper(), fips, shape_type.lower())
     req = requests.get(url)
     if req.status_code != 200:
@@ -65,6 +65,47 @@ def dump_shapes(fips, shape_type, outdir, get_jobs=False):
         f = open('%s/%s_%s.geojson' % (outdir, fips, shape_type), 'wb')
         f.write(json.dumps(geo))
         return geo
+
+def make_shapes(content, get_jobs=False):
+    zf = StringIO(content)
+    shp = StringIO()
+    dbf = StringIO()
+    shx = StringIO()
+    with zipfile.ZipFile(zf) as f:
+        for name in f.namelist():
+            if name.endswith('.shp'):
+                shp.write(f.read(name))
+            if name.endswith('.shx'):
+                shx.write(f.read(name))
+            if name.endswith('.dbf'):
+                dbf.write(f.read(name))
+    shape_reader = shapefile.Reader(shp=shp, dbf=dbf, shx=shx)
+    records = shape_reader.shapeRecords()
+    record_groups = grouper(records, 1000)
+    geo = {'type': 'FeatureCollection', 'features': []}
+    for records in record_groups:
+        i = 0
+        for record in records:
+            if record:
+                geoid = record.record[4]
+                fips_parts = geoid.split('.')
+                try:
+                    tract_fips = ''.join([fips, fips_parts[0].zfill(4), fips_parts[1].zfill(2)])
+                except IndexError:
+                    tract_fips = ''.join([fips, fips_parts[0].zfill(4), '00'])
+                dump = {
+                    'type': 'Feature', 
+                    'geometry': record.shape.__geo_interface__,
+                    'id': i,
+                    'properties': {
+                        'tract_fips': tract_fips
+                    }
+                }
+                if get_jobs:
+                    dump = add_jobs(tract_fips, dump)
+                i += 1
+                geo['features'].append(dump)
+    return geo
 
 def merge(shapes):
     out_geo = {'type': 'FeatureCollection', 'features': []}
